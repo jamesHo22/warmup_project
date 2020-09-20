@@ -5,7 +5,7 @@ import rospy
 
 class MarkerTest:
     def __init__(self):
-        rospy.init_node('test_vis')
+        rospy.init_node('marker_viz')
         self.pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
         
         init_marker = self.create_marker("base_link", 1,2,0)
