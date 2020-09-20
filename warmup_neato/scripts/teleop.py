@@ -38,17 +38,18 @@ class Teleop:
         # This is the defaul velocity command to be published
         self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,0))
         if key == 'w':
-            self.init_twist = Twist(Vector3(1,0,0), Vector3(0,0,0))
+            self.init_twist.linear = Vector3(1,0,0)
         elif key == 's':
-            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,0))
+            self.init_twist.linear = Vector3(0,0,0)
         elif key == 'a':
-            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,1))
+            self.init_twist.angular = Vector3(0,0,2)
         elif key == 'd':
-            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,-1))
+            self.init_twist.angular = Vector3(0,0,-2)
         elif key == 'x':
-            self.init_twist = Twist(Vector3(-1,0,0), Vector3(0,0,0))    
+            self.init_twist.linear = Vector3(-1,0,0)    
         else:
-            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,0)) 
+            self.init_twist.linear = Vector3(0,0,0)
+            self.init_twist.angular = Vector3(0,0,0)   
 
         self.pubMove.publish(self.init_twist)
         
