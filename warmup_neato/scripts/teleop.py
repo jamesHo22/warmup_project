@@ -20,7 +20,7 @@ class Teleop:
         tty.setraw(sys.stdin.fileno())
         select.select([sys.stdin], [], [], 0)
         self.key = sys.stdin.read(1)
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
         return self.key
     
     def run(self):
@@ -28,14 +28,33 @@ class Teleop:
         self.settings = termios.tcgetattr(sys.stdin)
         self.key = None
 
-        while not rospy.is_shutdown():
-              
-            while key != '\x03':
-                self.key = getKey()
-                print(self.key)
+        while not rospy.is_shutdown() and self.key != '\x03':  
+            self.key = self.getKey()
+            print(self.key)
+            self.moveRobot(self.key)  
+            r.sleep()
+
+    def moveRobot(self, key):
+        # This is the defaul velocity command to be published
+        self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,0))
+        if key == 'w':
+            self.init_twist = Twist(Vector3(1,0,0), Vector3(0,0,0))
+        elif key == 's':
+            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,0))
+        elif key == 'a':
+            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,1))
+        elif key == 'd':
+            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,-1))
+        elif key == 'x':
+            self.init_twist = Twist(Vector3(-1,0,0), Vector3(0,0,0))    
+        else:
+            self.init_twist = Twist(Vector3(0,0,0), Vector3(0,0,0)) 
+
+        self.pubMove.publish(self.init_twist)
+        
 
 			
-			r.sleep()
+			
 
 if __name__ == "__main__":
 
