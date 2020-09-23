@@ -23,7 +23,7 @@ class Square:
         self.pub2 = rospy.Publisher('/theta', Float32, queue_size=10)
 
         # set some coef's
-        self.sidelength = 2
+        self.sidelength = 1
         self.coef = 1
         self.coef_a = 1
 
@@ -47,25 +47,26 @@ class Square:
     def run_odom(self):
         # setup sub to odom / imu data
         r = rospy.Rate(10)
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and self.sides_completed <= 3 :
             d = self.get_distance()
+            print("distance: ", d)
             if d < self.sidelength:
                 # print('driving forwards')
                 # drive forwards
 
                 # do some error stuff - should we do this within drive_straight()?
                 error = abs((d**2-self.sidelength**2))**0.5
-                self.motorSpeed = error
+                self.motorSpeed = error*0.6
                 self.drive_straight()
                 
             else:
                 # print('turning')
 
-                theta = abs((self.currentAngle)**2-(self.set_angle)**2)**0.5
+                theta = self.angle_diff(self.currentAngle, self.set_angle)
                 # print(theta)
-                if theta<.1:
+                if abs(theta)<.01:
                     self.reset_vals()
-                    break
+                    print("stop turning")
 
                 self.pub2.publish(Float32(theta))
                 self.turn(theta)
@@ -73,21 +74,54 @@ class Square:
             self.pub.publish(self.twist)
             r.sleep()
 
+    def angle_normalize(self, z):
+        """ convenience function to map an angle to the range [-pi,pi] """
+        return math.atan2(math.sin(z), math.cos(z))
+
+    def angle_diff(self, a, b):
+        """ Calculates the difference between angle a and angle b (both should be in radians)
+                the difference is always based on the closest rotation from angle a to angle b
+
+            examples:
+                angle_diff(.1,.2) -> -.1
+                angle_diff(.1, 2*math.pi - .1) -> .2
+                angle_diff(.1, .2+2*math.pi) -> -.1
+        """
+        # a = self.angle_normalize(a)
+        # b = self.angle_normalize(b)
+
+        d1 = a-b
+        d2 = 2*math.pi - math.fabs(d1)
+        if d1 > 0:
+            d2 *= -1.0
+        if math.fabs(d1) < math.fabs(d2):
+            return d1
+        else:
+            return d2
+
     def reset_vals(self):
+        
+        # self.currentAngle = 0
+        print(self.sides_completed)
+        self.set_angle = self.angle_normalize(self.currentAngle + math.pi/2)
+        self.twist.linear.x = 0
+        self.twist.angular.z = 0
+
         self.sides_completed += 1
         if self.sides_completed == 1:
-            self.set_point = (self.current_position[0], self.current_position[1]+self.sidelength)
+            self.set_point = (self.current_position[0], self.current_position[1])
         elif self.sides_completed == 2:
-            self.set_point = (self.current_position[0]-self.sidelength, self.current_position[1])
+            self.set_point = (self.current_position[0], self.current_position[1])
         elif self.sides_completed == 3:
-            self.set_point = (self.current_position[0], self.current_position[1]-self.sidelength)
+            self.set_point = (self.current_position[0], self.current_position[1])
+        
+
+
         
 
 
 
-        self.set_angle = self.currentAngle + math.pi/2
-        self.twist.linear.x = 0
-        self.twist.angular.z = 0
+        
         
     def response_imu(self, message):
         self.currentAngle = euler_from_quaternion((message.orientation.x, message.orientation.y,message.orientation.z,message.orientation.w))[2]
@@ -128,7 +162,7 @@ class Square:
 
         # reset starting point in here too
         # print('current angle: ', self.currentAngle)
-        self.twist.angular.z = theta
+        self.twist.angular.z = -theta*0.5
         self.twist.linear.x = 0
         self.pub.publish(self.twist)
 
