@@ -8,7 +8,9 @@ import rospy, time, math
 from std_msgs.msg import Int8MultiArray
 from geometry_msgs.msg import Twist, Vector3
 from sensor_msgs.msg import LaserScan
-
+from visualization_msgs.msg import Marker
+from nav_msgs.msg import Odometry
+from tf.transformations import euler_from_quaternion
 
 class WallFollow:
     def __init__(self):         
@@ -26,9 +28,17 @@ class WallFollow:
         self.state = self.moving_along_wall
         # Current side neato is considering the wall
         self.wall = ''
+        self.wall_marker = None
+        # Neato odom information
+        self.x = 0
+        self.y = 0
+        self.yaw = 0
 
         rospy.Subscriber('/scan', LaserScan, self.process_scan)
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        rospy.Subscriber('/odom', Odometry, self.process_odom)
+        self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self.marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
+
 
     def process_scan(self, msg):
         """ Populate distances attributes if laser scanner detects something"""
@@ -42,6 +52,7 @@ class WallFollow:
             l_d2 = msg.ranges[90 + i]
             r_d1 = msg.ranges[270 + i]
             r_d2 = msg.ranges[270 - i]
+            # Scan between (1 and theta) and (-1 and -theta)
             f_d1 = msg.ranges[0 + i - 9]
             f_d2 = msg.ranges[0 - i + 8]
             if 0 < l_d1 < self.distance_threshold and 0 < l_d1 < self.distance_threshold:
@@ -50,6 +61,9 @@ class WallFollow:
                 self.right_distance_to_wall.append((r_d1, r_d2))
             if 0 < f_d1 < self.distance_threshold and 0 < f_d1 < self.distance_threshold:
                 self.forward_distance_to_wall.append((f_d1, f_d2))
+    
+    def process_odom(self, msg):
+        self.x, self.y, self.yaw = self.convert_pose_to_xy_and_theta(msg.pose.pose)
 
     def run(self):
         r = rospy.Rate(5)
@@ -63,6 +77,7 @@ class WallFollow:
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
             l_diff, l_avg, r_diff, r_avg = 100, 100, 100, 100
+            distance = 0
             if len(self.left_distance_to_wall) > 0:
                 l_diff, l_avg = self.calculate_distances(self.left_distance_to_wall)
             if len(self.right_distance_to_wall) > 0:
@@ -73,11 +88,13 @@ class WallFollow:
             if l_avg < r_avg:
                 print('left wall priority')
                 rotate = l_diff
+                distance = l_avg
                 self.wall = 'left'
             elif r_avg < l_avg:
                 print('right wall priority')
-                # Multiply by -1 to use the correct sign when caclulating angular z down the lines
+                # Multiply by -1 to use the correct sign when caclulating angular z for cmd_vel
                 rotate = r_diff * -1
+                distance = -r_avg
                 self.wall = 'right'
 
             if rotate is not None:
@@ -86,6 +103,12 @@ class WallFollow:
                 if abs(rotate) < .01:
                     m.linear.x = .2
                     print('parallel!!!')
+
+                    # Calculate wall point in odom coordinates
+                    x, y = self.neato_to_odom(0, distance, self.x, self.y, self.yaw)
+                    # Visualize the detected wall using a marker to rviz
+                    self.wall_marker = self.create_marker("odom", x, y, 0)
+                    self.marker_pub.publish(self.wall_marker)
                 # Neato is tilted more in the direction of either d1 or d2
                 else:
                     if rotate > 0:
@@ -95,7 +118,7 @@ class WallFollow:
                     # Rotate to an amount proportionate to the avg difference between range 
                     # scans above and below neato horizontal
                     m.angular.z = self.k * rotate
-                self.pub.publish(m)
+                self.vel_pub.publish(m)
 
             # Check if there is a wall in front of neato
             if len(self.forward_distance_to_wall) > 0:
@@ -116,7 +139,7 @@ class WallFollow:
             m.angular.z = -self.k
         else:
             m.angular.z = self.k
-        self.pub.publish(m)
+        self.vel_pub.publish(m)
         rospy.sleep(2)
         return self.moving_along_wall
 
@@ -133,9 +156,54 @@ class WallFollow:
         dist_avg /= (len(distance_to_wall) * 2)
         
         return dist_diff, dist_avg
+
+    def create_marker(self, frame, posx, posy, posz):
+        marker = Marker()
+        marker.header.frame_id = frame
+        marker.header.stamp = rospy.Time.now()
+        marker.ns = "wall_follow"
+        marker.id = 0
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.pose.position.x = posx
+        marker.pose.position.y = posy
+        marker.pose.position.z = posz
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
+        marker.scale.x = 0.2
+        marker.scale.y = 0.2
+        marker.scale.z = 0.2
+        marker.color.a = 1.0
+        marker.color.r = 1.0
+        marker.color.g = 0.6
+        marker.color.b = 0.6
+        return marker
     
-    def linspace(self, start, stop, num):
-        return [start + x * (stop - start) / (num - 1) for x in range(num)]
+    def convert_pose_to_xy_and_theta(self, pose):
+        """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
+        orientation_tuple = (pose.orientation.x,
+                                pose.orientation.y,
+                                pose.orientation.z,
+                                pose.orientation.w)
+        angles = euler_from_quaternion(orientation_tuple)
+        return (pose.position.x, pose.position.y, angles[2])
+
+    def neato_to_odom(self, a, b, c, d, theta):
+        """ Converts a point in the neato frame to odom frame 
+        
+        Args:
+            a: x in neato
+            b: y in neato
+            c: x of neato in world
+            d: y of neato in world
+            theta: the rotation neato is to the world
+        """
+        r_x = math.cos(theta) * a - math.sin(theta) * b + c
+        r_y = math.sin(theta) * a + math.cos(theta) * b + d
+        return r_x, r_y
+
 
 if __name__ == "__main__":
     node = WallFollow()
