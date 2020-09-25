@@ -33,10 +33,17 @@ class personFollwer:
         while not rospy.is_shutdown():
 
             if abs(self.POI[0])>.2:
-                # drive straight 
+                # drive straight at speed based on distance to drive 
+                self.twist.linear.x = self.POI[0]*0.6
+                self.pub.publish(self.twist)
 
             if abs(self.POI[1])>.01:
-                # continue turning 
+                # continue turning at angular speed based on angle (in rads) left to cover
+                
+                # is it - self.POI?  
+                self.twist.angular.z = -self.POI[1]*0.5
+                self.pub.publish(self.twist)
+
 
 
 
