@@ -34,6 +34,7 @@ class WallFollow:
         """ Populate distances attributes if laser scanner detects something"""
         self.left_distance_to_wall = []
         self.right_distance_to_wall = []
+        self.forward_distance_to_wall = []
 
         # Sweeps between 10 degree and theta degree
         for i in range(10, self.theta+1):
@@ -66,16 +67,14 @@ class WallFollow:
                 l_diff, l_avg = self.calculate_distances(self.left_distance_to_wall)
             if len(self.right_distance_to_wall) > 0:
                 r_diff, r_avg = self.calculate_distances(self.right_distance_to_wall)
-            
+                        
             rotate = None
             # Determine the closest wall on left or right side
             if l_avg < r_avg:
-                print(l_avg, r_avg)
                 print('left wall priority')
                 rotate = l_diff
                 self.wall = 'left'
             elif r_avg < l_avg:
-                print(l_avg, r_avg)
                 print('right wall priority')
                 # Multiply by -1 to use the correct sign when caclulating angular z down the lines
                 rotate = r_diff * -1
@@ -102,23 +101,23 @@ class WallFollow:
             if len(self.forward_distance_to_wall) > 0:
                 length = len(self.forward_distance_to_wall) * 2
                 avg = sum([d1 + d2 for d1, d2 in self.forward_distance_to_wall]) / length
-                print('forward', avg)
-                if avg < .5:
+                print('forward object detected', avg)
+                if avg < .6:
                     print('Detected forward wall!!')
                     return self.change_wall
 
             r.sleep()
     
-    def change_wall():
+    def change_wall(self):
         """ Implements changing wall state. Neato rotates to for a fixed length to trigger new wall """
         m = Twist()
         print('*****Changing wall*******')
         if self.wall == 'left':
-            m.angular.z = -2
+            m.angular.z = -self.k
         else:
-            m.angular.z = 2
+            m.angular.z = self.k
         self.pub.publish(m)
-        rospy.sleep(3)
+        rospy.sleep(2)
         return self.moving_along_wall
 
 
