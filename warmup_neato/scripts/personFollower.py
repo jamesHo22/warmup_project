@@ -78,9 +78,9 @@ class personFollwer:
                     self.twist.angular.z = -self.POI[1]*0.5
                     self.pub.publish(self.twist)
             
-    if __name__ == "__main__":
-        myPersonFollwer = personFollwer()
-        myPersonFollwer.POI = (1,0)
-        myPersonFollwer.move_towards()
-        rospy.spin()
+if __name__ == "__main__":
+    myPersonFollwer = personFollwer()
+    myPersonFollwer.POI = (1,1)
+    myPersonFollwer.move_towards()
+    rospy.spin()
         
