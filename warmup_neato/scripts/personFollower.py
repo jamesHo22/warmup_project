@@ -10,3 +10,16 @@ from tf.transformations import euler_from_quaternion
 import rospy
 import time
 import math
+
+
+
+
+
+
+
+
+
+def move_towards(self, angle, distance):
+    # given an angle and a distance from the base_link frame, the neato should aim to 
+    # move in the right direction and close the gap. 
+    # The function should allow for recalibration (run off of ) 
