@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # importing message stuff
 from std_msgs.msg import Int8MultiArray, Float32
 from geometry_msgs.msg import Twist, Vector3, Pose
@@ -30,44 +29,6 @@ class personFollwer:
     def getPOI(self):
         minDist = min(self.lidarPoints)
         self.lidarPoints.index()
-        
-class personFollwer:
-    def __init__(self):
-        # init node
-        rospy.init_node('personFollwer')
-
-        self.scanSub = rospy.Subscriber('/scan', )
-
-
-if __name__ == "__main__":
-    myPersonFollwer = personFollwer()
-    rospy.spin()
-    def move_towards(self, angle, distance):
-        # given an angle and a distance from the base_link frame, the neato should aim to 
-        # move in the right direction and close the gap. 
-        # The function should allow for mid-run recalibration
-
-        # self.POI = (meters away from neato, rad detected at)
-
-
-        while not rospy.is_shutdown():
-
-            if abs(self.POI[0])>.2:
-                # drive straight at speed based on distance to drive 
-                self.twist.linear.x = self.POI[0]*0.6
-                self.pub.publish(self.twist)
-
-            if abs(self.POI[1])>.01:
-                # continue turning at angular speed based on angle (in rads) left to cover
-                
-                # is it - self.POI?  
-                self.twist.angular.z = -self.POI[1]*0.5
-                self.pub.publish(self.twist)
-
-
-
-
-
 
     # Helper Functions for angle calcs
     def angle_normalize(self, z):
@@ -94,3 +55,32 @@ if __name__ == "__main__":
             return d1
         else:
             return d2
+
+    def move_towards(self):
+            # given an angle and a distance from the base_link frame, the neato should aim to 
+            # move in the right direction and close the gap. 
+            # The function should allow for mid-run recalibration
+
+            # self.POI = (meters away from neato, rad detected at)
+
+
+            while not rospy.is_shutdown():
+
+                if abs(self.POI[0])>.2:
+                    # drive straight at speed based on distance to drive 
+                    self.twist.linear.x = self.POI[0]*0.6
+                    self.pub.publish(self.twist)
+
+                if abs(self.POI[1])>.01:
+                    # continue turning at angular speed based on angle (in rads) left to cover
+                    
+                    # is it - self.POI?  
+                    self.twist.angular.z = -self.POI[1]*0.5
+                    self.pub.publish(self.twist)
+            
+    if __name__ == "__main__":
+        myPersonFollwer = personFollwer()
+        myPersonFollwer.POI = (1,0)
+        myPersonFollwer.move_towards()
+        rospy.spin()
+        
