@@ -10,3 +10,11 @@ from tf.transformations import euler_from_quaternion
 import rospy
 import time
 import math
+
+class personFollwer:
+    def __init__(self):
+        # init node
+        rospy.init_node('personFollwer')
+
+        self.scanSub = rospy.Subscriber('/scan', )
+
