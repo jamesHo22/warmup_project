@@ -17,7 +17,7 @@ class PersonFollower:
     def __init__(self):
         # init node
         rospy.init_node('person_follower')
-        
+
         # Point of Interest: (distance in meters, direction in radians) in 
         # polar coordinates in reference to the base link
         self.POI = (0,0) 
@@ -67,6 +67,8 @@ class PersonFollower:
                     self.twist.angular.z = 0
 
             self.pub.publish(self.twist)
+        
+            r.sleep()
 
     # Helper Functions for angle calcs
     def angle_normalize(self, z):

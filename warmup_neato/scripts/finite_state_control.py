@@ -16,7 +16,8 @@ class FiniteControl:
         self.tracking_range = 2
         self.angular_speed = .5
         self.state = self.seeking
-        self.POI = (0, 0)
+        # Point of interest, the point to follow
+        self.POI = (None, None)
         self.current_position = (0, 0)
         self.current_angle = 0
         # Angle at which the seeking motion starts
@@ -31,11 +32,8 @@ class FiniteControl:
     def seeking(self):
         """ Implements the seeking behavior. Rotates back and forth and 
         scans for a person to follow that comes within the tracing range. """
-        # m = Twist()
-        # m.angular.z = self.angular_speed
-        # self.vel_pub.publish(m)
         r = rospy.Rate(10)
-        print('*********Seeking***************')
+        print('*********Seeking*********')
         while not rospy.is_shutdown():
             # Reached the end of seeking theta, seek the other direction now
             if self.current_angle > self.starting_angle + self.seek_theta or \
@@ -45,13 +43,13 @@ class FiniteControl:
                 print('turn seek around')
                 
             # Rotate in seek step increments
-            print("Rotating by", self.seek_step, self.current_angle)
             self.rotate_by_angle(self.seek_step)
 
             # Detects something within tracking range
             # TODO: Use a mass of points, instead of one
-            # if self.POI[0] < self.tracking_range: 
-            #     return self.person_follow
+            if self.POI[0] is not None: 
+                return self.person_follow
+
             r.sleep()
     
     def rotate_by_angle(self, theta):
@@ -60,7 +58,6 @@ class FiniteControl:
         # Because neato coordinate system increases counter clockwise, positive
         # angular values turn left, negative angular values turn right
         m.angular.z = self.angular_speed * -1 if theta < 0 else 1
-        print(self.angular_speed, theta, m.angular.z)
         target_angle = self.angle_normalize(self.current_angle + theta)
         diff = self.angle_diff(self.current_angle, target_angle)
         r = rospy.Rate(10)
@@ -68,26 +65,71 @@ class FiniteControl:
         while not rospy.is_shutdown() and abs(diff) > .05:
             self.vel_pub.publish(m)
             diff = self.angle_diff(self.current_angle, target_angle)
-            print('turning', math.degrees(target_angle), math.degrees(self.current_angle), diff)
             r.sleep()
         m.angular.z = 0
         self.vel_pub.publish(m)
-        print('stop turning')
 
     def process_odom(self, msg):
         x, y, self.current_angle = self.convert_pose_to_xy_and_theta(msg.pose.pose)
         self.current_position = (x, y)
 
     def process_scan(self, msg):
-        """ Gets the closest point in scan's distance and angle """
-        lidarPoints = msg.ranges
-        minIndex = lidarPoints.index(min(lidarPoints))
-        self.POI = (lidarPoints[minIndex], math.pi*minIndex/180)
+        """ Gets the closest point in scan's distance and angle within it's tracking area (front of scan) """
+        # Only grabs lidar data in front half
+        lidar_0_90 = msg.ranges[0:90]
+        lidar_270_end = msg.ranges[270:]
+        minIndex = None
+        minDistance = None
+        if min(lidar_0_90) < min(lidar_270_end):
+            minDistance = min(lidar_0_90)
+            minIndex = lidar_0_90.index(minDistance)
+        else:
+            minDistance = min(lidar_270_end)
+            minIndex = lidar_270_end.index(minDistance) + 270
+        
+        # Designate a point of interest if detects something within tracking range
+        if minDistance < self.tracking_range:
+            self.POI = (minDistance, math.pi*minIndex/180)
+            print('Found a Point of Interest')
+        else:
+            self.POI = (None, None)
 
-        # print(self.POI)
+    def sigmoid(self, x):
+        return 1/(1+math.exp(-x))
 
     def person_follow(self):
-        pass
+        """ Implements person following behavior """
+        m = Twist()
+        r = rospy.Rate(10)
+        print('*********Person Following*********')
+        while not rospy.is_shutdown():
+            # Doesn't have a POI
+            if self.POI[0] is None:
+                return self.seeking
+            # Checks if neato is close enough to person to stop
+            elif abs(self.POI[0]) <= .5:
+                m.linear.x = 0
+                m.angular.z = 0
+                self.vel_pub.publish(m)
+
+            else:
+                # Checks if heading of neato is not in the direction of the POI
+                if abs(self.POI[1]) > .1:
+                    # Continue turning at angular speed based on angle (in rads) left to cover
+                    
+                    # is it - self.POI?  
+                    if 0 < self.POI[1] <= math.pi:
+                        m.angular.z = self.sigmoid(self.POI[1]) * 0.6
+                    else:
+                        m.angular.z = -self.sigmoid(self.POI[1]) * 0.6
+                else:
+                    # Drive straight at speed based on distance to drive
+                    m.linear.x = self.POI[0] * 0.5
+                    m.angular.z = 0
+
+            self.vel_pub.publish(m)
+
+            r.sleep()
 
     def avoid_obstacle(self):
         pass
@@ -97,10 +139,6 @@ class FiniteControl:
         while not rospy.is_shutdown():
             # set the state variable equal to function that is returned  
             self.state = self.state() 
-        # print("Rotating by", math.degrees(-self.seek_step), "degrees. Current angle:", math.degrees(self.current_angle))
-        # self.rotate_by_angle(-self.seek_step)
-        # print("Current angle", self.current_angle)
-        # rospy.spin()
 
     # Helper Functions for angle calcs
     def angle_normalize(self, z):
