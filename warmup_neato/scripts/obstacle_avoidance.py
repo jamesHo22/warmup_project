@@ -34,7 +34,6 @@ class force_avoid_obstacles:
     def recieveScan(self, msg):
          # upon recieving scan values, set global var values 
          self.lidarPoints = msg.ranges
-        #  print(self.lidarPoints)
 
     def operation(self):
         while not rospy.is_shutdown():
@@ -43,8 +42,6 @@ class force_avoid_obstacles:
             # Find angles, in radians, of obstacles / where to place negative forces
             angles = self.cluster_lidar()
             print('angles: ', angles)
-
-            # angles = [math.pi/3] # test if angle straight in front
 
             # calculate net force based on angles walk through 
             net_force = main_coef*np.array([1.0,0.0])
@@ -60,8 +57,6 @@ class force_avoid_obstacles:
             # drive in direction of POI
             self.drive()
     
-
-
     def drive(self):
         if abs(self.POI[1])>.1:
             # continue turning at angular speed based on angle (in rads) left to cover
@@ -77,33 +72,6 @@ class force_avoid_obstacles:
             self.twist.linear.x = self.sigmoid(self.POI[0])*0.5
             self.twist.angular.z = 0
             self.pub.publish(self.twist)
-
-    def find_object_directions(self):
-        # 
-        # return angles in which objects exist, based on global LIDAR vars 
-        # AKA start by finding groupings of angles with similar distances
-        # AKA find the centers of all peaks within the 360 degree scan  
-        angles = []
-        # this algo low key ass 
-        smallest_distances = nsmallest(10, self.lidarPoints)
-        for distance in smallest_distances:
-            angles.append(self.lidarPoints.index(distance))
-
-        # eliminate angle vals that are too close to eachother
-
-        # compare the distances, not angles 
-        delete = []
-        angles = sorted(angles)
-        for index in range(1, len(angles)):
-            if abs(angles[index] - angles[index-1])< 5:
-                delete.append(index)
-        
-        for i in delete:
-            del angles[i]
-        # this algo high key ass 
-        return angles
-
-
 
     def cluster_lidar(self):
         # handle case where lidar points does not exist yet
@@ -153,34 +121,6 @@ class force_avoid_obstacles:
 
     def sigmoid(self, x):
         return 1/(1+math.exp(-x))
-        
-
-
-
-
-# naive obstacle avoidance code 
-
-class naive_avoid_osbtacles:
-    def __init__(self):
-        # init node
-        rospy.init_node('obscale_avoider')
-
-        # setup subscription to lidar scan /scan topic
-        self.scanSub = rospy.Subscriber('/scan', LaserScan, self.recieveScan)
-
-        # setup twist attribute and setup publishing to /cmd_vel topic
-        self.twist = Twist(Vector3(0,0,0), Vector3(0,0,0))
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-
-    def recieveScan(self):
-        # upon recieving scan values, set global var values 
-        pass
-
-    def operation(self):
-        # perform new calcs in every run based on global lidar scan vars
-
-        # determine if operation needs to be standard or different execution needs to be done 
-        pass
         
 
 if __name__ == "__main__":
