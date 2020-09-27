@@ -10,7 +10,7 @@ from tf.transformations import euler_from_quaternion
 import rospy
 import time
 import math
-import numpy as np
+# import numpy as np
 
 class personFollower:
 
