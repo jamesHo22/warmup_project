@@ -139,11 +139,6 @@ class Square:
         
 
     def turn(self, theta):
-        # self.twist = Twist(Vector3(0,0,0), Vector3(0,1,0))
-        # self.pub.publish(self.twist)
-
-        # reset starting point in here too
-        # print('current angle: ', self.currentAngle)
         self.twist.angular.z = -theta*0.5
         self.twist.linear.x = 0
         self.pub.publish(self.twist)
