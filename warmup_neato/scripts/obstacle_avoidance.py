@@ -19,7 +19,7 @@ from heapq import nsmallest
 class force_avoid_obstacles:
     def __init__(self):
         # init node
-        rospy.init_node('obscale_avoider')
+        rospy.init_node('obstcale_avoider')
 
         # setup subscription to lidar scan /scan topic
         self.scanSub = rospy.Subscriber('/scan', LaserScan, self.recieveScan)
@@ -38,7 +38,7 @@ class force_avoid_obstacles:
     def operation(self):
         while not rospy.is_shutdown():
             main_coef = 10.0
-            obstacle_coef = -5.0
+            obstacle_coef = -7.0
             # Find angles, in radians, of obstacles / where to place negative forces
             angles = self.cluster_lidar()
             print('angles: ', angles)
@@ -74,14 +74,17 @@ class force_avoid_obstacles:
             self.pub.publish(self.twist)
 
     def cluster_lidar(self):
+        # observable issues - has an issue picking up objects between 360 and 0, becasue that is where the scan starts
+        # has an issue where it is influenced by objects 'in the past / objects that are irrelevent. 
+
         # handle case where lidar points does not exist yet
         if len(self.lidarPoints)==0:
             return []
-        elif all(elem == math.inf for elem in self.lidarPoints): # handles case where there are no obstacles
+        elif all(elem == math.inf for elem in self.lidarPoints): # handles case where there are no obstacles, before /scan init
             return []
         else:
             # walks through all differences in distances
-            threshold_distance = .5 # hardcoded - but in theory should use the Adaptive Breakpoint Detector algorithm
+            threshold_distance = .1 # hardcoded - but in theory should use the Adaptive Breakpoint Detector algorithm
             naive_cluster_edges = [0] # list of starts and ends of groupings
             cluster_centers = []
             # self.lidarPoints = [math.inf, math.inf, math.inf, 20, 20.1, 20.2, 20.4,91,91.3] # for testing
@@ -101,11 +104,12 @@ class force_avoid_obstacles:
                 print('degrees we are comparing: ', naive_cluster_edges[i-1], 'and ', naive_cluster_edges[i])
                 if not (math.isinf(self.lidarPoints[naive_cluster_edges[i-1]]) and math.isinf(self.lidarPoints[naive_cluster_edges[i]])):
                     # grab the 'centers' of these clusters
+
+                    # if self.lidarPoints(print)
                     cluster_centers.append((naive_cluster_edges[i-1] + naive_cluster_edges[i])/2) 
             
             print('angles: ', cluster_centers)
-            # returns angles of cluster centers in radians
-            return list(map(self.deg2rad, cluster_centers))
+            return list(map(np.deg2rad, cluster_centers))
 
     def deg2rad(self,angle):
         return(np.deg2rad(angle))
