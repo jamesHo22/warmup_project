@@ -8,9 +8,9 @@ import rospy, time, math
 from std_msgs.msg import Int8MultiArray
 from geometry_msgs.msg import Twist, Vector3
 from sensor_msgs.msg import LaserScan
-from visualization_msgs.msg import Marker
 from nav_msgs.msg import Odometry
-from tf.transformations import euler_from_quaternion
+from helper import convert_pose_to_xy_and_theta, create_marker, neato_to_odom
+from visualization_msgs.msg import Marker
 
 class WallFollow:
     def __init__(self):         
@@ -63,7 +63,7 @@ class WallFollow:
                 self.forward_distance_to_wall.append((f_d1, f_d2))
     
     def process_odom(self, msg):
-        self.x, self.y, self.yaw = self.convert_pose_to_xy_and_theta(msg.pose.pose)
+        self.x, self.y, self.yaw = convert_pose_to_xy_and_theta(msg.pose.pose)
 
     def run(self):
         r = rospy.Rate(5)
@@ -105,9 +105,9 @@ class WallFollow:
                     print('parallel!!!')
 
                     # Calculate wall point in odom coordinates
-                    x, y = self.neato_to_odom(0, distance, self.x, self.y, self.yaw)
+                    x, y = neato_to_odom(0, distance, self.x, self.y, self.yaw)
                     # Visualize the detected wall using a marker to rviz
-                    self.wall_marker = self.create_marker("odom", x, y, 0)
+                    self.wall_marker = create_marker("odom", "wall_follower", x, y, 0, r=1.0, g=0.6, b=0.6)
                     self.marker_pub.publish(self.wall_marker)
                 # Neato is tilted more in the direction of either d1 or d2
                 else:
@@ -156,54 +156,6 @@ class WallFollow:
         dist_avg /= (len(distance_to_wall) * 2)
         
         return dist_diff, dist_avg
-
-    def create_marker(self, frame, posx, posy, posz):
-        marker = Marker()
-        marker.header.frame_id = frame
-        marker.header.stamp = rospy.Time.now()
-        marker.ns = "wall_follow"
-        marker.id = 0
-        marker.type = Marker.SPHERE
-        marker.action = Marker.ADD
-        marker.pose.position.x = posx
-        marker.pose.position.y = posy
-        marker.pose.position.z = posz
-        marker.pose.orientation.x = 0.0
-        marker.pose.orientation.y = 0.0
-        marker.pose.orientation.z = 0.0
-        marker.pose.orientation.w = 1.0
-        marker.scale.x = 0.2
-        marker.scale.y = 0.2
-        marker.scale.z = 0.2
-        marker.color.a = 1.0
-        marker.color.r = 1.0
-        marker.color.g = 0.6
-        marker.color.b = 0.6
-        return marker
-    
-    def convert_pose_to_xy_and_theta(self, pose):
-        """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
-        orientation_tuple = (pose.orientation.x,
-                                pose.orientation.y,
-                                pose.orientation.z,
-                                pose.orientation.w)
-        angles = euler_from_quaternion(orientation_tuple)
-        return (pose.position.x, pose.position.y, angles[2])
-
-    def neato_to_odom(self, a, b, c, d, theta):
-        """ Converts a point in the neato frame to odom frame 
-        
-        Args:
-            a: x in neato
-            b: y in neato
-            c: x of neato in world
-            d: y of neato in world
-            theta: the rotation neato is to the world
-        """
-        r_x = math.cos(theta) * a - math.sin(theta) * b + c
-        r_y = math.sin(theta) * a + math.cos(theta) * b + d
-        return r_x, r_y
-
 
 if __name__ == "__main__":
     node = WallFollow()
