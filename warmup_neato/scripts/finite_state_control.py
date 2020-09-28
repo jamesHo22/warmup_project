@@ -24,7 +24,7 @@ class FiniteControl:
         self.current_angle = 0
         # Angle at which the seeking motion starts
         self.starting_angle = self.current_angle
-        self.seek_theta = math.radians(90)
+        self.seek_theta = math.radians(60)
         self.seek_step = math.radians(5)
 
         self.vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=10)
@@ -93,15 +93,16 @@ class FiniteControl:
         # Designate a point of interest if detects something within tracking range
         if minDistance < self.tracking_range:
             self.POI = (minDistance, math.pi*minIndex/180)
-            # Deletes all markers
-            # self.marker_pub.publish(create_marker("base_link", "finite_state", 0, 0, 0, \
-            #             Marker.CUBE, Marker.DELETE))
+            x = self.POI[0]*math.cos(self.POI[1])
+            y = self.POI[0]*math.sin(self.POI[1])
+            # Visualize a marker for person to follow
+            self.marker_pub.publish(create_marker("base_link", "person_follow", x, y, 0.2))
             print('Found a Point of Interest')
         else:
             self.POI = (None, None)
             # Visualize the tracking area using a marker to rviz
             self.marker_pub.publish(create_marker("base_link", "finite_state", self.tracking_range/2, 0, 0, \
-                                    Marker.CUBE, self.tracking_range, self.tracking_range*2, .2, r=0, g=0, b=1))
+                                    Marker.CUBE, self.tracking_range, self.tracking_range*2, .2, r=0, g=0, b=1, a=.2))
 
     def person_follow(self):
         """ Implements person following behavior """
