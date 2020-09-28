@@ -6,7 +6,9 @@ from std_msgs.msg import Int8MultiArray, Float32
 from geometry_msgs.msg import Twist, Vector3, Pose
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
-from tf.transformations import euler_from_quaternion
+from visualization_msgs.msg import Marker
+from helper import convert_pose_to_xy_and_theta, create_marker, \
+angle_diff, angle_normalize, sigmoid
 
 class FiniteControl:
 
@@ -28,6 +30,7 @@ class FiniteControl:
         self.vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=10)
         rospy.Subscriber('scan', LaserScan, self.process_scan)
         rospy.Subscriber('/odom', Odometry, self.process_odom)
+        self.marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
 
     def seeking(self):
         """ Implements the seeking behavior. Rotates back and forth and 
@@ -58,19 +61,19 @@ class FiniteControl:
         # Because neato coordinate system increases counter clockwise, positive
         # angular values turn left, negative angular values turn right
         m.angular.z = self.angular_speed * -1 if theta < 0 else 1
-        target_angle = self.angle_normalize(self.current_angle + theta)
-        diff = self.angle_diff(self.current_angle, target_angle)
+        target_angle = angle_normalize(self.current_angle + theta)
+        diff = angle_diff(self.current_angle, target_angle)
         r = rospy.Rate(10)
         # Keep on turning as long as the current angle and target angle are not within a threshold
         while not rospy.is_shutdown() and abs(diff) > .05:
             self.vel_pub.publish(m)
-            diff = self.angle_diff(self.current_angle, target_angle)
+            diff = angle_diff(self.current_angle, target_angle)
             r.sleep()
         m.angular.z = 0
         self.vel_pub.publish(m)
 
     def process_odom(self, msg):
-        x, y, self.current_angle = self.convert_pose_to_xy_and_theta(msg.pose.pose)
+        x, y, self.current_angle = convert_pose_to_xy_and_theta(msg.pose.pose)
         self.current_position = (x, y)
 
     def process_scan(self, msg):
@@ -90,12 +93,15 @@ class FiniteControl:
         # Designate a point of interest if detects something within tracking range
         if minDistance < self.tracking_range:
             self.POI = (minDistance, math.pi*minIndex/180)
+            # Deletes all markers
+            # self.marker_pub.publish(create_marker("base_link", "finite_state", 0, 0, 0, \
+            #             Marker.CUBE, Marker.DELETE))
             print('Found a Point of Interest')
         else:
             self.POI = (None, None)
-
-    def sigmoid(self, x):
-        return 1/(1+math.exp(-x))
+            # Visualize the tracking area using a marker to rviz
+            self.marker_pub.publish(create_marker("base_link", "finite_state", self.tracking_range/2, 0, 0, \
+                                    Marker.CUBE, self.tracking_range, self.tracking_range*2, .2, r=0, g=0, b=1))
 
     def person_follow(self):
         """ Implements person following behavior """
@@ -119,9 +125,9 @@ class FiniteControl:
                     
                     # is it - self.POI?  
                     if 0 < self.POI[1] <= math.pi:
-                        m.angular.z = self.sigmoid(self.POI[1]) * 0.6
+                        m.angular.z = sigmoid(self.POI[1]) * 0.6
                     else:
-                        m.angular.z = -self.sigmoid(self.POI[1]) * 0.6
+                        m.angular.z = -sigmoid(self.POI[1]) * 0.6
                 else:
                     # Drive straight at speed based on distance to drive
                     m.linear.x = self.POI[0] * 0.5
@@ -140,41 +146,6 @@ class FiniteControl:
             # set the state variable equal to function that is returned  
             self.state = self.state() 
 
-    # Helper Functions for angle calcs
-    def angle_normalize(self, z):
-        """ convenience function to map an angle to the range [-pi,pi] """
-        return math.atan2(math.sin(z), math.cos(z))
-
-    def angle_diff(self, a, b):
-        """ Calculates the difference between angle a and angle b (both should be in radians)
-                the difference is always based on the closest rotation from angle a to angle b
-            examples:
-                angle_diff(.1,.2) -> -.1
-                angle_diff(.1, 2*math.pi - .1) -> .2
-                angle_diff(.1, .2+2*math.pi) -> -.1
-        """
-        # a = self.angle_normalize(a)
-        # b = self.angle_normalize(b)
-
-        d1 = a-b
-        d2 = 2*math.pi - math.fabs(d1)
-        if d1 > 0:
-            d2 *= -1.0
-        if math.fabs(d1) < math.fabs(d2):
-            return d1
-        else:
-            return d2   
-
-    def convert_pose_to_xy_and_theta(self, pose):
-        """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
-        orientation_tuple = (pose.orientation.x,
-                                pose.orientation.y,
-                                pose.orientation.z,
-                                pose.orientation.w)
-        angles = euler_from_quaternion(orientation_tuple)
-        return (pose.position.x, pose.position.y, angles[2])
-
 if __name__ == "__main__":
     myFiniteControl = FiniteControl()
-
     myFiniteControl.run()
