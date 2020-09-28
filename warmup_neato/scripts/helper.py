@@ -7,7 +7,7 @@ from visualization_msgs.msg import Marker
 from tf.transformations import euler_from_quaternion
 
 def create_marker(frame, ns, posx, posy, posz, mtype=Marker.SPHERE, \
-                  scalex=.2, scaley=.2, scalez=.2, r=0, g=1, b=0):
+                  scalex=.2, scaley=.2, scalez=.2, r=0, g=1, b=0, a=1, maction=3):
     """ Creates a visualization marker to display in rviz """
     marker = Marker()
     marker.header.frame_id = frame
@@ -26,7 +26,7 @@ def create_marker(frame, ns, posx, posy, posz, mtype=Marker.SPHERE, \
     marker.scale.x = scalex
     marker.scale.y = scaley
     marker.scale.z = scalez
-    marker.color.a = 1.0
+    marker.color.a = a
     marker.color.r = r
     marker.color.g = g
     marker.color.b = b

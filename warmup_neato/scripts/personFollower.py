@@ -67,6 +67,7 @@ class PersonFollower:
 
             self.pub.publish(self.twist)
                        
+        
             r.sleep()                 
             
 if __name__ == "__main__":
