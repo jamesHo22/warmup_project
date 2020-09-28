@@ -25,7 +25,7 @@ class PersonFollower:
         rospy.Subscriber('/scan', LaserScan, self.process_scan)
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.marker_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
-        self.wall_marker = helper.create_marker("base_link", "person_follow", 0, 0, 0.2)
+        self.person_marker = helper.create_marker("base_link", "person_follow", 0, 0, 0.2)
 
     def process_scan(self, msg):
         """ Gets the closest point in scan's distance and angle and sets it to the POI"""
@@ -39,9 +39,12 @@ class PersonFollower:
         # The function should allow for mid-run recalibration
         r = rospy.Rate(10)
         while not rospy.is_shutdown():
-            self.wall_marker.pose.position.x = self.POI[0]
-            self.wall_marker.pose.position.y = self.POI[1]
-            self.marker_pub.publish(self.wall_marker)
+            x = self.POI[0]*math.cos(self.POI[1])
+            y = self.POI[0]*math.sin(self.POI[1])
+
+            self.person_marker.pose.position.x = x
+            self.person_marker.pose.position.y = y
+            self.marker_pub.publish(self.person_marker)
             # Checks if neato is close enough to person to stop
             if abs(self.POI[0]) <= .5:
                 self.twist.linear.x = 0
