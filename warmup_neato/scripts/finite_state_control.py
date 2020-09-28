@@ -136,7 +136,7 @@ class FiniteControl:
 
             self.vel_pub.publish(m)
 
-            r.sleep()
+            r.sleep() 
 
     def avoid_obstacle(self):
         pass
