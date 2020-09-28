@@ -23,6 +23,7 @@ The wall follower behavior is composed of two states: moving along a wall that i
 
 The core of the wall follower is handled in the `moving_along_wall` state. The goal in this state is to orient the Neato parallel to the closest wall within 1 meter on either of its sides, and then drive forwards while maintaining its parallel relationship. To accomplish this we use the method as shown in the following image:
 
+![wall follow explanation](screenshots/wall_follow.png)
 
 We optimize the Neato’s heading so that it’s horizontal axis is perpendicular to the wall. By doing this, we ensure that the Neato always stays parallel and follows the wall. To do this, we match lidar scans that are equally angled above and below the Neato’s horizontal and use proportional control to get them as equal to each other as possible. In implementation, we use a sweep of angles instead of one pair to make this process less error prone and more robust.
 
@@ -53,6 +54,8 @@ A large shortcoming - our force calculations didn’t use the objects’ positio
 ## Finite state control - Richard
 ![](screenshots/fintieStateController.gif)
 Our finite state controller consists of two states: seeking and person following.
+
+![state diagram](screenshots/state.png)
 
 The Neato always starts in the seeking state. Here, it sweeps back and forth by a designated theta (we set this to 60°) and checks the lidar scans from 0°-90° and 270°-0° (essentially the front of the Neato for any objects that comes within a tracking range (we set this to 2 meters). This was done to emulate a seeking behavior that moves its tracking area to hunt for objects. The Neato transitions to the person following state once an object is detected within the scanning area. In the person following state, the Neato rotates its heading to face the object and then drives forward always orienting itself to follow the said object as long as it remains in its tracking area (visualized in rviz with the blue area in front). If the object leaves the tracking area by crossing a large distance quickly, the Neato transitions back to the seeking state.
 
