@@ -2,18 +2,19 @@
     the neato nodes. 
 """
 
-import math
+import math, rospy
 from visualization_msgs.msg import Marker
 from tf.transformations import euler_from_quaternion
 
-def create_marker(frame, posx, posy, posz):
+def create_marker(frame, ns, posx, posy, posz, mtype=Marker.SPHERE, \
+                  scalex=.2, scaley=.2, scalez=.2, r=0, g=1, b=0):
     """ Creates a visualization marker to display in rviz """
     marker = Marker()
     marker.header.frame_id = frame
     marker.header.stamp = rospy.Time.now()
-    marker.ns = "wall_follow"
+    marker.ns = ns
     marker.id = 0
-    marker.type = Marker.SPHERE
+    marker.type = mtype
     marker.action = Marker.ADD
     marker.pose.position.x = posx
     marker.pose.position.y = posy
@@ -22,13 +23,13 @@ def create_marker(frame, posx, posy, posz):
     marker.pose.orientation.y = 0.0
     marker.pose.orientation.z = 0.0
     marker.pose.orientation.w = 1.0
-    marker.scale.x = 0.2
-    marker.scale.y = 0.2
-    marker.scale.z = 0.2
+    marker.scale.x = scalex
+    marker.scale.y = scaley
+    marker.scale.z = scalez
     marker.color.a = 1.0
-    marker.color.r = 1.0
-    marker.color.g = 0.6
-    marker.color.b = 0.6
+    marker.color.r = r
+    marker.color.g = g
+    marker.color.b = b
     return marker
 
 def convert_pose_to_xy_and_theta(pose):
