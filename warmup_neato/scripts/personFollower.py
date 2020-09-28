@@ -66,12 +66,8 @@ class PersonFollower:
                     self.twist.angular.z = 0
 
             self.pub.publish(self.twist)
-        
-<<<<<<< HEAD
-            r.sleep()                
-=======
+                       
             r.sleep()                 
->>>>>>> 0964158fba10a7c90ccd9972f8a91a811a199a86
             
 if __name__ == "__main__":
     node = PersonFollower()
